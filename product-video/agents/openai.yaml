@@ -1,4 +1,6 @@
 interface:
   display_name: "商品视频工作台"
-  short_description: "上传商品图即生成一张 9:16 五格场景分镜图"
-  default_prompt: "使用 $product-video，零确认，直接根据我上传的产品图生成一张无叠字的 9:16 五格场景分镜图；不要创建文件素材包。"
+  short_description: "上传商品图即出五张场景关键帧、视频提示词并投递本人飞书"
+  default_prompt: "使用 $product-video，直接根据我上传的商品图生成五张独立 9:16 场景关键帧和视频提示词，保存到原图目录并尝试发给当前飞书本人。"
+policy:
+  allow_implicit_invocation: true

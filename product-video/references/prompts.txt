@@ -1,0 +1,80 @@
+PRODUCT VIDEO PROMPT RULES
+
+Priority
+
+1. The product reference is the only source of truth for the product.
+2. Product identity fidelity is more important than style, drama, or scene complexity.
+3. A style reference controls only palette, light, environment, composition, depth, mood, and camera language. Never copy its product, person, logo, text, packaging, or brand.
+4. Never infer unreadable text, hidden geometry, accessories, ports, functions, claims, specifications, or materials.
+5. Generate one independent 9:16 image per call. Never ask one call for a contact sheet, collage, five panels, or multiple shots.
+6. Keep every frame free of captions, CTA, prices, badges, UI, watermarks, decorative typography, and invented packaging text.
+
+Product identity lock
+
+Use the supplied product reference as the only source of truth. Preserve the same single product: exact visible silhouette, proportions, color blocks, material cues, part count, construction, openings, seams, controls, logo position, visible label layout, and packaging geometry. Do not redesign, simplify, duplicate, recolor, relabel, complete hidden surfaces, or add accessories. Keep unclear regions visually neutral. Clearly legible text physically present on the product may remain; do not invent or complete unreadable text.
+
+Shared visual world
+
+Use one coherent premium commercial world for all five frames: a consistent palette, lighting direction and softness, time of day, surface family, lens character, and product scale. If no style reference exists, choose a restrained premium studio or lifestyle setting that does not imply an unverified function. Make each shot visually distinct through framing, camera angle, and scene depth, not by changing the product.
+
+Base keyframe template
+
+Create one photorealistic vertical 9:16 e-commerce video keyframe for {SHOT_ID}. This is one full-frame image, not a collage, storyboard sheet, split screen, or multi-panel layout.
+
+PRODUCT IDENTITY LOCK: {PRODUCT_IDENTITY_LOCK}
+
+STYLE ROLE LOCK: {STYLE_ROLE_LOCK}
+
+SHOT PURPOSE: {PURPOSE}
+SCENE: {SCENE}
+PRODUCT PLACEMENT OR ACTION: {PRODUCT_ACTION}
+SHOT SIZE AND ANGLE: {SHOT_SIZE}; {CAMERA_ANGLE}
+COMPOSITION: {COMPOSITION}; preserve safe vertical 9:16 framing.
+LIGHTING AND STYLE: {LIGHTING_STYLE}
+EXPECTED END STATE: {END_STATE}
+
+Make the real product dominant, physically plausible, sharp, clean, and commercially polished. Use realistic contact shadows, reflections, scale, and material response. Keep the important product area readable and unobstructed.
+
+AVOID: product deformation; changed proportions, color, material, logo, labels, or packaging; extra or missing parts; product duplication; invented accessories or text; floating objects; impossible reflections; warped hands; clutter; captions; slogans; CTA; price; badges; specifications; watermark; UI; borders; collage; split screen; low-resolution artifacts.
+
+Five shot purposes
+
+01 hook
+The product is recognizable immediately. Use an attention-catching reveal composition without hiding the product or inventing a function. Prefer environmental light, foreground depth, or a controlled camera-ready moment over explosions, floating parts, or fantasy transformations.
+
+02 hero
+Show the full product most clearly. Use a clean premium hero composition, stable proportions, realistic grounding, and strong separation from the background.
+
+03 use
+Place the product in a conservative, plausible lifestyle context. Do not demonstrate an unverified effect or capability. If hands are needed, minimize occlusion and keep anatomy plausible; otherwise prefer a hands-free placement.
+
+04 detail
+Show one clearly visible, factual material, shape, seam, edge, opening, surface, or construction detail. Avoid unreadable small text and any detail not supported by the reference.
+
+05 ending
+Create a stable premium end frame with the full product recognizable, clean negative space, and a composition suitable for a two-second hold. Do not add a CTA or advertising copy.
+
+Targeted retry template
+
+Regenerate only {SHOT_ID}. The previous attempt failed because: {DEFECTS}. Keep the same product identity, shot purpose, scene, framing intent, lighting, and visual world. Correct only the listed defects. Output one full-frame vertical 9:16 image with no text overlay, collage, border, or additional product.
+
+Visual QC for each image
+
+- Same product category, silhouette, proportions, count, main color, visible construction, logo position, and label layout.
+- No invented text, function, specification, accessory, extra product, or missing main part.
+- No deformation, floating, impossible contact, bad reflection, warped hand, or implausible scale.
+- One full-frame 9:16 image; not a contact sheet, collage, split screen, or framed panel.
+- No captions, CTA, price, badge, UI, watermark, or decorative type.
+- Shot purpose is clear and the product can serve as an image-to-video first frame.
+
+Universal image-to-video prompt template
+
+Animate the supplied identity-locked keyframe into one continuous vertical product shot lasting about two seconds. Keep the product completely stable in shape, proportions, color, material, part count, logo, labels, and placement. ACTION: {PRODUCT_ACTION}. CAMERA: {CAMERA_MOVEMENT}. ENVIRONMENT MOTION: {ENVIRONMENT_MOTION}. LIGHTING: {LIGHTING_STYLE}, stable with no flicker. END STATE: {END_STATE}; finish with a clean hold for editing. Use physically plausible motion and temporal consistency. No cuts or scene changes. Avoid morphing, melting, bending, duplication, disappearing parts, invented surfaces, label changes, camera jumps, focus pumping, lighting flicker, warped hands, subtitles, CTA, watermark, or UI.
+
+Recommended motion by shot
+
+01 hook: a short controlled push-in or foreground reveal; product visible from the first frame.
+02 hero: a slow small orbit or dolly-in; product remains grounded and fully readable.
+03 use: one restrained lifestyle action plus a gentle tracking move; no unverified product effect.
+04 detail: a slow macro slide or rack focus over one confirmed visible detail.
+05 ending: a subtle settle or very slow pull-back, ending in a stable two-second hold.
