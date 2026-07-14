@@ -1,80 +1,169 @@
-PRODUCT VIDEO PROMPT RULES
+PRODUCT VIDEO DIRECTOR RULES
 
-Priority
+The job is to direct one five-segment commercial, not to create unrelated product posters.
 
-1. The product reference is the only source of truth for the product.
-2. Product identity fidelity is more important than style, drama, or scene complexity.
-3. A style reference controls only palette, light, environment, composition, depth, mood, and camera language. Never copy its product, person, logo, text, packaging, or brand.
-4. Never infer unreadable text, hidden geometry, accessories, ports, functions, claims, specifications, or materials.
-5. Generate one independent 9:16 image per call. Never ask one call for a contact sheet, collage, five panels, or multiple shots.
-6. Keep every frame free of captions, CTA, prices, badges, UI, watermarks, decorative typography, and invented packaging text.
+NON-NEGOTIABLE PRODUCT TRUTH
 
-Product identity lock
+1. The clearest supplied product image is the permanent identity source. If the attachment has no local path, a QC-approved neutral local proxy transports only those visible facts across later calls.
+2. Preserve the same one product: visible silhouette, proportions, count, color blocks, material cues, parts, openings, seams, controls, logo position, readable label layout, and packaging geometry.
+3. Keep unclear or hidden regions neutral. Never complete unreadable text, hidden geometry, accessories, ports, functions, claims, specifications, or materials.
+4. A style image controls only palette, light, environment, composition, depth, mood, and camera language. Never copy its product, person, logo, text, packaging, or brand.
+5. One frame contains one product instance. Avoid mirrors, complete reflections, foreground copies, background copies, decorative miniatures, or an added screen image that creates a second recognizable product. A screen physically belonging to the real product remains unchanged.
+6. Every frame is one full-frame 9:16 raster image. Captions, CTA, price, badges, UI, borders, watermarks, collages, grids, split screens, and storyboard sheets are excluded.
 
-Use the supplied product reference as the only source of truth. Preserve the same single product: exact visible silhouette, proportions, color blocks, material cues, part count, construction, openings, seams, controls, logo position, visible label layout, and packaging geometry. Do not redesign, simplify, duplicate, recolor, relabel, complete hidden surfaces, or add accessories. Keep unclear regions visually neutral. Clearly legible text physically present on the product may remain; do not invent or complete unreadable text.
+INTERNAL CONCEPT SELECTION
 
-Shared visual world
+Before generating, silently propose three different commercial ideas. Each idea must contain:
 
-Use one coherent premium commercial world for all five frames: a consistent palette, lighting direction and softness, time of day, surface family, lens character, and product scale. If no style reference exists, choose a restrained premium studio or lifestyle setting that does not imply an unverified function. Make each shot visually distinct through framing, camera angle, and scene depth, not by changing the product.
+- one sentence visual premise;
+- one verified product truth it makes memorable;
+- one visual motif that can evolve across all five segments;
+- one causal action chain from anchor 01 to anchor 06;
+- one feasible transition grammar.
 
-Base keyframe template
+The three ideas must use different causal mechanisms, not the same pedestal sequence in different colors. Score each from 1 to 5 for product fidelity, immediate visual impact, causal clarity, continuity feasibility, and category relevance. Execute only the highest total. Reject any idea that depends on an unverified function or product redesign, or uses two or more generic light-sweep, push-in, and hero-pose beats. Do not expose this comparison unless the user asks.
 
-Create one photorealistic vertical 9:16 e-commerce video keyframe for {SHOT_ID}. This is one full-frame image, not a collage, storyboard sheet, split screen, or multi-panel layout.
+SHARED-ENDPOINT ARCHITECTURE
 
-PRODUCT IDENTITY LOCK: {PRODUCT_IDENTITY_LOCK}
+Five video segments require six anchors:
 
-STYLE ROLE LOCK: {STYLE_ROLE_LOCK}
+01.png -> segment 01 -> 02.png
+02.png -> segment 02 -> 03.png
+03.png -> segment 03 -> 04.png
+04.png -> segment 04 -> 05.png
+05.png -> segment 05 -> 06.png
 
-SHOT PURPOSE: {PURPOSE}
-SCENE: {SCENE}
-PRODUCT PLACEMENT OR ACTION: {PRODUCT_ACTION}
-SHOT SIZE AND ANGLE: {SHOT_SIZE}; {CAMERA_ANGLE}
-COMPOSITION: {COMPOSITION}; preserve safe vertical 9:16 framing.
-LIGHTING AND STYLE: {LIGHTING_STYLE}
-EXPECTED END STATE: {END_STATE}
+Anchor N is both the result of segment N-1 and the starting state of segment N. Design it once and reuse it. Do not generate separate look-alike frames for the same handoff.
 
-Make the real product dominant, physically plausible, sharp, clean, and commercially polished. Use realistic contact shadows, reflections, scale, and material response. Keep the important product area readable and unobstructed.
+The six anchors must form a causal progression:
 
-AVOID: product deformation; changed proportions, color, material, logo, labels, or packaging; extra or missing parts; product duplication; invented accessories or text; floating objects; impossible reflections; warped hands; clutter; captions; slogans; CTA; price; badges; specifications; watermark; UI; borders; collage; split screen; low-resolution artifacts.
+- 01: an immediately legible opening state with tension, curiosity, or a visual trigger.
+- 02: the visible result of the first beat and a new question or direction.
+- 03: a motivated interaction, spatial change, or factual product reveal.
+- 04: a verified detail, material response, or visual payoff caused by the prior beat.
+- 05: the resolved product state; a use result only when the reference proves that use.
+- 06: a stable final memory image that is visibly earned by anchors 01-05.
 
-Five shot purposes
+Adapt these functions to the product. They are narrative jobs, not fixed camera angles. If use cannot be verified, move light, foreground, camera, atmosphere, or a neutral physical prop instead of inventing product behavior.
 
-01 hook
-The product is recognizable immediately. Use an attention-catching reveal composition without hiding the product or inventing a function. Prefer environmental light, foreground depth, or a controlled camera-ready moment over explosions, floating parts, or fantasy transformations.
+CONTINUITY LEDGER
 
-02 hero
-Show the full product most clearly. Use a clean premium hero composition, stable proportions, realistic grounding, and strong separation from the background.
+Track static continuity for every anchor:
 
-03 use
-Place the product in a conservative, plausible lifestyle context. Do not demonstrate an unverified effect or capability. If hands are needed, minimize occlusion and keep anatomy plausible; otherwise prefer a hands-free placement.
+- product position, orientation, scale, state, and contact surface;
+- hand/person position and exact contact, if any;
+- scene geometry and screen axis;
+- foreground and background landmarks;
+- key-light direction, softness, color temperature, and time of day;
+- exact incoming physical state at the instant of the frame;
+- exact outgoing physical state from which the next segment can begin.
 
-04 detail
-Show one clearly visible, factual material, shape, seam, edge, opening, surface, or construction detail. Avoid unreadable small text and any detail not supported by the reference.
+Hard rules:
 
-05 ending
-Create a stable premium end frame with the full product recognizable, clean negative space, and a composition suitable for a two-second hold. Do not add a CTA or advertising copy.
+- A segment starts exactly at its first anchor and lands exactly at its second anchor.
+- Motion direction does not reverse without a visible cause.
+- An action does not restart in the next segment.
+- Spatial jumps require a motivated occlusion, light wipe, focus transition, motion blur, or deliberate cut point.
+- Use the previous approved anchor only as the instantaneous continuity source. The original product image, or its QC-approved neutral local proxy, remains the identity source.
 
-Targeted retry template
+SHOT DESIGN AND ANTI-REPETITION
 
-Regenerate only {SHOT_ID}. The previous attempt failed because: {DEFECTS}. Keep the same product identity, shot purpose, scene, framing intent, lighting, and visual world. Correct only the listed defects. Output one full-frame vertical 9:16 image with no text overlay, collage, border, or additional product.
+Plan a camera signature for each of the five segments:
 
-Visual QC for each image
+shot size | camera height | horizontal angle | lens character | subject screen position | one camera move | one visible beat | end state
 
-- Same product category, silhouette, proportions, count, main color, visible construction, logo position, and label layout.
-- No invented text, function, specification, accessory, extra product, or missing main part.
-- No deformation, floating, impossible contact, bad reflection, warped hand, or implausible scale.
-- One full-frame 9:16 image; not a contact sheet, collage, split screen, or framed panel.
-- No captions, CTA, price, badge, UI, watermark, or decorative type.
-- Shot purpose is clear and the product can serve as an image-to-video first frame.
+- Adjacent segments cannot repeat the same shot size, camera height, horizontal angle, or camera move as a complete combination.
+- Across five segments, use at least four distinct camera signatures.
+- Each segment has exactly one principal camera move and one visible beat.
+- Top-down is allowed at most once. A rear view is allowed only when the rear contains real information. A centered hero composition is allowed at most twice.
+- Do not mechanically cycle through front, back, left, right, top, and bottom.
+- Every camera change must reveal information, intensify an action, or deliver a payoff.
+- A large first-to-last-frame change must still be physically achievable by the one named camera move.
 
-Universal image-to-video prompt template
+VISUAL IMPACT WITHOUT EMPTY ADJECTIVES
 
-Animate the supplied identity-locked keyframe into one continuous vertical product shot lasting about two seconds. Keep the product completely stable in shape, proportions, color, material, part count, logo, labels, and placement. ACTION: {PRODUCT_ACTION}. CAMERA: {CAMERA_MOVEMENT}. ENVIRONMENT MOTION: {ENVIRONMENT_MOTION}. LIGHTING: {LIGHTING_STYLE}, stable with no flicker. END STATE: {END_STATE}; finish with a clean hold for editing. Use physically plausible motion and temporal consistency. No cuts or scene changes. Avoid morphing, melting, bending, duplication, disappearing parts, invented surfaces, label changes, camera jumps, focus pumping, lighting flicker, warped hands, subtitles, CTA, watermark, or UI.
+Do not substitute words such as stunning, cinematic, premium, masterpiece, epic, or 8K for actual art direction.
 
-Recommended motion by shot
+Specify concrete choices instead:
 
-01 hook: a short controlled push-in or foreground reveal; product visible from the first frame.
-02 hero: a slow small orbit or dolly-in; product remains grounded and fully readable.
-03 use: one restrained lifestyle action plus a gentle tracking move; no unverified product effect.
-04 detail: a slow macro slide or rack focus over one confirmed visible detail.
-05 ending: a subtle settle or very slow pull-back, ending in a stable two-second hold.
+- key-light shape and direction;
+- shadow edge and reflection shape;
+- surface texture and scale;
+- foreground occlusion and depth layers;
+- atmospheric particles, mist, condensation, or fabric movement when category-appropriate;
+- speed, weight, resistance, and settling of motion;
+- one controlled color contrast that develops across the sequence.
+
+Allow bold architecture, material worlds, volume light, macro scale, and graphic color fields. Keep the product physically grounded and identity-locked. Avoid generic repeated pedestal shots, random floating parts, explosions, crowded props, and effects that imply a false function.
+
+ANCHOR IMAGE PROMPT TEMPLATE
+
+Create one photorealistic vertical 9:16 commercial anchor frame: {ANCHOR_ID}. This is one complete image, not a collage, contact sheet, split screen, or multi-panel storyboard.
+
+PRODUCT IDENTITY SOURCE: {PRODUCT_IDENTITY_LOCK}
+
+STYLE-ONLY SOURCE: {STYLE_ROLE_LOCK}
+
+PREVIOUS ANCHOR ROLE: {PREVIOUS_ANCHOR_ROLE}
+Use the previous anchor only to preserve the same world, spatial axis, light direction, product state, and incoming action. Depict the causal end state reachable through the segment's one planned camera path; do not copy the previous framing or duplicate its product.
+
+DIRECTOR PREMISE: {DIRECTOR_PREMISE}
+CAUSAL CHAIN POSITION: {CAUSE_AND_NEW_INFORMATION}
+EXACT ANCHOR STATE: {ANCHOR_STATE}
+PRODUCT POSITION AND ORIENTATION: {PRODUCT_POSITION}
+ANCHOR CAMERA STATE: {SHOT_SIZE}; {CAMERA_HEIGHT}; {HORIZONTAL_ANGLE}; {LENS_CHARACTER}; product at {SCREEN_POSITION}.
+DEPTH DESIGN: {FOREGROUND_MIDGROUND_BACKGROUND}
+LIGHT AND MATERIAL DESIGN: {LIGHT_MATERIAL_DESIGN}
+INCOMING HANDOFF: {INCOMING_HANDOFF}
+OUTGOING POSSIBILITY: {OUTGOING_POSSIBILITY}
+
+The product is dominant, physically plausible, sharply readable where intended, and integrated through accurate contact shadow, scale, reflection, and material response. Keep one product only. Preserve every clearly visible identity feature and label layout; text that was unreadable in the source remains unreadable. Keep text overlays, invented packaging text, duplicate products, full mirror images, impossible reflections, warped hands, floating contact, clutter, borders, and UI outside the image.
+
+For anchor 01, replace PREVIOUS ANCHOR ROLE and INCOMING HANDOFF with “opening state; no previous frame.”
+
+TARGETED ANCHOR RETRY
+
+Regenerate only anchor {ANCHOR_ID}. The prior candidate failed because: {ONE_SPECIFIC_DEFECT}. Preserve the selected director premise, exact product identity, continuity state, anchor camera state, and lighting world. Correct only the named defect. Return one full-frame 9:16 image.
+
+SINGLE-FRAME QC
+
+- Product identity and count match the truth image.
+- The causal state is legible without explanatory copy.
+- One dominant focal idea; clear hierarchy; at least two useful depth layers.
+- The anchor camera state is reachable through its segment's one camera path and is not an unmotivated duplicate of an earlier anchor.
+- Product contact, shadow, reflection, scale, hands, and materials are plausible.
+- No invented text, feature, accessory, function, specification, extra product, or full duplicate reflection.
+- Full-frame 9:16; no captions, CTA, watermark, UI, border, collage, or split screen.
+
+SEQUENCE QC
+
+After all anchors exist, review 01 through 06 as one sequence and score 1-5:
+
+- product fidelity;
+- causal progression;
+- handoff continuity;
+- camera differentiation;
+- visual impact;
+- final payoff.
+
+Any score below 4 is a failure. Repair the earliest later anchor that causes the break, then re-check forward and regenerate only dependent anchors that no longer fit. One forward repair pass maximum; the first concept remains within three calls per anchor. If causal progression or visual impact fails across two or more segments, treat the concept—not one frame—as defective and allow one complete trial of the second-ranked idea in temporary storage, exactly one call per anchor with no retries. The whole run is capped at four calls per anchor. Keep only the higher-scoring complete chain. A beautiful frame that breaks the sequence is not acceptable.
+
+VIDEO PROMPT RULES
+
+Each numbered segment receives exactly one concise prompt. The supplied start and end frames already define product appearance, scene, composition, and light; do not redescribe them.
+
+Use this order:
+
+1. one visible subject or environment action, including part/body, direction, speed, range, weight, or resistance;
+2. one motivated camera move;
+3. optionally, one passive environment response that is a direct consequence or natural continuation of the main action—not a second event;
+4. inertia and the exact landing state shown by the end frame;
+5. positive identity and continuity locks.
+
+Write one short paragraph. Do not use 0-3 second timelines. Do not add a second event, second camera move, new person, new prop, new text, new product part, cutaway, montage, or scene change.
+
+UNIVERSAL FIRST-AND-LAST-FRAME VIDEO TEMPLATE
+
+{ONE_VISIBLE_ACTION}. The camera performs one {CAMERA_MOVE}. {OPTIONAL_PASSIVE_ENVIRONMENT_RESPONSE} Continue the incoming direction and physical inertia smoothly, then settle exactly into the supplied end frame. Maintain one unchanged product with stable geometry, proportions, color, material, part count, and visible logo/label layout; unreadable text stays unresolved, with continuous space, stable light, natural contact, and temporal consistency.
+
+The final TXT defaults to concise Chinese prompts for readability. Translate the structure, not the amount of detail, when the user requests another language.

@@ -23,11 +23,12 @@ from typing import Any, Dict, List, Mapping, NamedTuple, Optional, Sequence, Tup
 
 PREFERRED_DESKTOP = Path(r"D:\UserData\Desktop")
 LOG_FILENAME = "生图日志.txt"
-DEFAULT_PREFIX = "商品视频"
-RESULT_SUFFIX = "-视频提示词.txt"
-SHOT_ROLES = ("hook", "hero", "use", "detail", "ending")
-SHOT_KEYS = tuple("{:02d}-{}".format(index, role) for index, role in enumerate(SHOT_ROLES, 1))
-MAX_IMAGE_COUNT = len(SHOT_ROLES)
+DEFAULT_PRODUCT_NAME = "商品视频"
+PROJECT_MARKER = "_导演台_"
+RESULT_FILENAME = "导演台.txt"
+SHOT_KEYS = tuple("{:02d}".format(index) for index in range(1, 7))
+MAX_IMAGE_COUNT = len(SHOT_KEYS)
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 CLI_TIMEOUT_SECONDS = 120
 
 NOTICE_ENV = {
@@ -141,8 +142,9 @@ def resolve_log_path(
     home = Path.home()
     if home.is_dir():
         return home / ".codex" / "logs" / LOG_FILENAME
-    base = (output_dir or Path.cwd()).expanduser().resolve()
-    return base / LOG_FILENAME
+    # Keep operational logs outside the creative result directory even on a
+    # severely restricted host with no usable home directory.
+    return Path(tempfile.gettempdir()).resolve() / "codex-product-video" / LOG_FILENAME
 
 
 def append_log(path: Path, fields: Mapping[str, Any]) -> Tuple[bool, Optional[str]]:
@@ -424,38 +426,80 @@ def _public_probe(probe: Mapping[str, Any]) -> Dict[str, Any]:
     }
 
 
-def sanitize_prefix(value: str) -> str:
-    """Make a user prefix safe as one Windows filename component."""
+def sanitize_product_name(value: str) -> str:
+    """Make a product name safe as one portable directory component."""
     cleaned = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", str(value or ""))
     cleaned = re.sub(r"\s+", " ", cleaned).strip(" .")
     cleaned = re.sub(r"_+", "_", cleaned)
+    cleaned = cleaned.strip(" ._")
     if not cleaned:
-        cleaned = DEFAULT_PREFIX
+        cleaned = DEFAULT_PRODUCT_NAME
     stem_upper = cleaned.split(".", 1)[0].upper()
     if stem_upper in {"CON", "PRN", "AUX", "NUL"} or re.fullmatch(
         r"(?:COM|LPT)[1-9]", stem_upper
     ):
         cleaned = "_" + cleaned
-    return cleaned[:80].rstrip(" .") or DEFAULT_PREFIX
+    return cleaned[:80].rstrip(" ._") or DEFAULT_PRODUCT_NAME
 
 
-def _safe_suffix(source: Path) -> str:
-    suffix = source.suffix.lower()
-    if re.fullmatch(r"\.[a-z0-9]{1,10}", suffix or ""):
-        return suffix
-    return ".png"
+def _project_timestamp() -> str:
+    return _datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 
 
-def _image_target(
-    output_dir: Path, prefix: str, index: int, role: str, source: Path
-) -> Path:
-    return output_dir / "{}-{:02d}-{}{}".format(
-        prefix, index, role, _safe_suffix(source)
+def _create_project_directory(base_dir: Path, product_name: str) -> Path:
+    if base_dir.exists() and not base_dir.is_dir():
+        raise DeliveryError("base_dir_not_directory:{}".format(base_dir))
+    base_dir.mkdir(parents=True, exist_ok=True)
+    stem = "{}{}{}".format(
+        sanitize_product_name(product_name), PROJECT_MARKER, _project_timestamp()
     )
+    counter = 1
+    while True:
+        suffix = "" if counter == 1 else "-{:02d}".format(counter)
+        candidate = base_dir / (stem + suffix)
+        try:
+            candidate.mkdir(exist_ok=False)
+            return candidate.resolve()
+        except FileExistsError:
+            counter += 1
 
 
-def _result_target(output_dir: Path, prefix: str) -> Path:
-    return output_dir / (prefix + RESULT_SUFFIX)
+def _resolve_init_location(
+    source: Optional[str], base_dir: Optional[str], product_name: Optional[str]
+) -> Tuple[Path, str, Optional[Path]]:
+    source_path: Optional[Path] = None
+    inferred_name: Optional[str] = None
+    inferred_base: Optional[Path] = None
+    if source:
+        source_path = Path(source).expanduser().resolve()
+        if not source_path.exists():
+            raise DeliveryError("source_not_found:{}".format(source_path))
+        if source_path.is_file():
+            inferred_base = source_path.parent
+            inferred_name = source_path.stem
+        elif source_path.is_dir():
+            inferred_base = source_path
+            inferred_name = source_path.name
+        else:
+            raise DeliveryError("source_must_be_file_or_directory:{}".format(source_path))
+    if base_dir:
+        selected_base = Path(base_dir).expanduser().resolve()
+    elif inferred_base is not None:
+        selected_base = inferred_base
+    else:
+        selected_base = Path.cwd().resolve()
+    selected_name = sanitize_product_name(
+        product_name or inferred_name or DEFAULT_PRODUCT_NAME
+    )
+    return selected_base, selected_name, source_path
+
+
+def _image_target(output_dir: Path, index: int) -> Path:
+    return output_dir / "{:02d}.png".format(index)
+
+
+def _result_target(output_dir: Path) -> Path:
+    return output_dir / RESULT_FILENAME
 
 
 def _same_file(source: Path, destination: Path) -> bool:
@@ -465,38 +509,6 @@ def _same_file(source: Path, destination: Path) -> bool:
         return os.path.samefile(str(source), str(destination))
     except OSError:
         return source.resolve() == destination.resolve()
-
-
-def _prefix_conflicts(
-    output_dir: Path, prefix: str, images: Sequence[ParsedImage]
-) -> bool:
-    provided = {(image.index, image.role): image.source for image in images}
-    if output_dir.is_dir():
-        entries = [path for path in output_dir.iterdir() if path.is_file()]
-        for index, role in enumerate(SHOT_ROLES, start=1):
-            filename_prefix = "{}-{:02d}-{}.".format(prefix, index, role).lower()
-            source = provided.get((index, role))
-            for existing in entries:
-                if not existing.name.lower().startswith(filename_prefix):
-                    continue
-                if source is None or not _same_file(source, existing):
-                    return True
-    return _result_target(output_dir, prefix).exists()
-
-
-def _choose_output_prefix(
-    output_dir: Path, requested: str, images: Sequence[ParsedImage]
-) -> str:
-    base = sanitize_prefix(requested)
-    if not _prefix_conflicts(output_dir, base, images):
-        return base
-    timestamp = _datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    candidate = "{}-{}".format(base, timestamp)
-    counter = 2
-    while _prefix_conflicts(output_dir, candidate, images):
-        candidate = "{}-{}-{:02d}".format(base, timestamp, counter)
-        counter += 1
-    return candidate
 
 
 def _copy_without_overwrite(source: Path, destination: Path) -> None:
@@ -518,6 +530,31 @@ def _copy_without_overwrite(source: Path, destination: Path) -> None:
         raise
 
 
+def _has_valid_png_header(path: Path) -> bool:
+    """Reject renamed JPEG/WebP data before it is persisted as a PNG result."""
+    try:
+        with path.open("rb") as handle:
+            header = handle.read(29)
+    except OSError:
+        return False
+    if len(header) != 29 or header[:8] != PNG_SIGNATURE:
+        return False
+    if int.from_bytes(header[8:12], "big") != 13 or header[12:16] != b"IHDR":
+        return False
+    width = int.from_bytes(header[16:20], "big")
+    height = int.from_bytes(header[20:24], "big")
+    bit_depth, colour_type, compression, filtering, interlace = header[24:29]
+    return (
+        width > 0
+        and height > 0
+        and bit_depth in {1, 2, 4, 8, 16}
+        and colour_type in {0, 2, 3, 4, 6}
+        and compression == 0
+        and filtering == 0
+        and interlace in {0, 1}
+    )
+
+
 def _parse_image_specs(images: Sequence[str]) -> List[ParsedImage]:
     if len(images) > MAX_IMAGE_COUNT:
         raise DeliveryError("at_most_{}_images_allowed".format(MAX_IMAGE_COUNT))
@@ -525,9 +562,9 @@ def _parse_image_specs(images: Sequence[str]) -> List[ParsedImage]:
     bare: List[str] = []
     for raw in images:
         key, separator, value = raw.partition("=")
-        if separator and key in SHOT_KEYS:
+        if separator and key in SHOT_KEYS and value:
             explicit.append((key, value))
-        elif separator and re.fullmatch(r"\d{2}-[A-Za-z0-9_-]+", key):
+        elif separator and re.fullmatch(r"\d{2}(?:-[A-Za-z0-9_-]+)?", key):
             raise DeliveryError("invalid_image_role:{}".format(key))
         else:
             bare.append(raw)
@@ -541,54 +578,90 @@ def _parse_image_specs(images: Sequence[str]) -> List[ParsedImage]:
             if key in seen:
                 raise DeliveryError("duplicate_image_role:{}".format(key))
             seen.add(key)
-            index = SHOT_KEYS.index(key) + 1
-            parsed.append(ParsedImage(index, SHOT_ROLES[index - 1], Path(value).expanduser().resolve()))
+            index = int(key)
+            parsed.append(ParsedImage(index, key, Path(value).expanduser().resolve()))
         parsed.sort(key=lambda item: item.index)
     else:
-        semantic_pattern = re.compile(
-            r"(?:^|-)(0[1-5])-(hook|hero|use|detail|ending)(?=\.[^.]+$)", re.IGNORECASE
-        )
+        semantic_pattern = re.compile(r"(?:^|[-_])(0[1-6])(?=\.[^.]+$)")
         for position, value in enumerate(bare, start=1):
             source = Path(value).expanduser().resolve()
             match = semantic_pattern.search(source.name)
             if match:
                 inferred_index = int(match.group(1))
-                inferred_role = match.group(2).lower()
-                if inferred_index != position or inferred_role != SHOT_ROLES[position - 1]:
+                if inferred_index != position:
                     raise DeliveryError("bare_images_must_be_contiguous_from_01")
-            parsed.append(ParsedImage(position, SHOT_ROLES[position - 1], source))
+            parsed.append(ParsedImage(position, "{:02d}".format(position), source))
     for image in parsed:
         if not image.source.is_file():
             raise DeliveryError("image_not_found:{}".format(image.source))
+        if image.source.suffix.lower() != ".png":
+            raise DeliveryError("image_must_be_png:{}".format(image.role))
+        if not _has_valid_png_header(image.source):
+            raise DeliveryError("invalid_png_content:{}".format(image.role))
     return parsed
 
 
-def _copy_images(
-    images: Sequence[ParsedImage], output_dir: Path, prefix: str
-) -> Tuple[List[SavedImage], str]:
+def _copy_images(images: Sequence[ParsedImage], output_dir: Path) -> List[SavedImage]:
     output_dir.mkdir(parents=True, exist_ok=True)
-    selected_prefix = _choose_output_prefix(output_dir, prefix, images)
     local_images: List[SavedImage] = []
     for image in images:
-        destination = _image_target(
-            output_dir, selected_prefix, image.index, image.role, image.source
-        )
+        destination = _image_target(output_dir, image.index)
         if not _same_file(image.source, destination):
+            if destination.exists():
+                raise DeliveryError("output_exists:{}".format(destination.name))
             _copy_without_overwrite(image.source, destination)
         local_images.append(
             SavedImage(image.index, image.role, destination.resolve())
         )
-    return local_images, selected_prefix
+    return local_images
 
 
-def _write_result_text(output_dir: Path, prefix: str, result_text: str) -> Path:
+def _write_result_text(output_dir: Path, result_text: str) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
-    destination = _result_target(output_dir, prefix)
+    destination = _result_target(output_dir)
+    if destination.exists():
+        raise DeliveryError("output_exists:{}".format(destination.name))
     with destination.open("x", encoding="utf-8-sig", newline="\n") as handle:
         handle.write(result_text)
         if result_text and not result_text.endswith("\n"):
             handle.write("\n")
     return destination.resolve()
+
+
+def _validate_result_text(result_text: str) -> None:
+    """Require the compact 5-segment/6-frame director-console schema."""
+    normalized = result_text.lstrip("\ufeff").replace("\r\n", "\n").replace("\r", "\n")
+    lines = [line.strip() for line in normalized.split("\n") if line.strip()]
+    if len(lines) < 2 or not re.fullmatch(r"项目[：:]\s*\S.*", lines[0]):
+        raise DeliveryError("director_text_requires_project_line")
+    if not re.fullmatch(r"规格[：:]\s*\S.*", lines[1]):
+        raise DeliveryError("director_text_requires_spec_line")
+
+    cursor = 2
+    if cursor < len(lines) and re.fullmatch(r"生图[：:]\s*\S.*", lines[cursor]):
+        cursor += 1
+
+    for index in range(1, 6):
+        segment_id = "{:02d}".format(index)
+        if cursor >= len(lines) or not re.fullmatch(
+            re.escape(segment_id) + r"\s*[|｜]\s*\S.*", lines[cursor]
+        ):
+            raise DeliveryError("director_text_requires_segments_01_to_05")
+        cursor += 1
+
+        expected_mapping = "首尾帧：{:02d}.png → {:02d}.png".format(index, index + 1)
+        if cursor >= len(lines) or lines[cursor] != expected_mapping:
+            raise DeliveryError("invalid_frame_mapping:{}".format(segment_id))
+        cursor += 1
+
+        if cursor >= len(lines) or not re.fullmatch(r"提示词[：:]\s*\S.*", lines[cursor]):
+            raise DeliveryError("segment_requires_one_prompt:{}".format(segment_id))
+        cursor += 1
+        if cursor < len(lines) and re.fullmatch(r"提示词[：:]\s*\S.*", lines[cursor]):
+            raise DeliveryError("segment_requires_one_prompt:{}".format(segment_id))
+
+    if cursor != len(lines):
+        raise DeliveryError("director_text_contains_extra_content")
 
 
 def _delivery_summary(delivery: Mapping[str, Any]) -> str:
@@ -606,13 +679,6 @@ def _delivery_summary(delivery: Mapping[str, Any]) -> str:
     if not reason:
         reason = "发送完成" if status == "sent" else "仅预演，未真实发送"
     return "{} — {}".format(label, _sanitize_text(reason, limit=240))
-
-
-def _append_delivery_status(result_path: Path, summary: str) -> None:
-    # The file already starts with a UTF-8 BOM. Appending plain UTF-8 keeps a
-    # single BOM and remains directly readable in Windows Notepad.
-    with result_path.open("a", encoding="utf-8", newline="\n") as handle:
-        handle.write("\n飞书投递：{}\n".format(summary))
 
 
 def _content_digest_bytes(content: bytes) -> str:
@@ -773,6 +839,50 @@ def _send_results(
     }
 
 
+def execute_init(
+    source: Optional[str],
+    base_dir: Optional[str],
+    product_name: Optional[str],
+    run_id: str,
+    log_file: Optional[str],
+) -> Dict[str, Any]:
+    """Create one collision-safe director project directory before generation."""
+    selected_base, selected_name, source_path = _resolve_init_location(
+        source, base_dir, product_name
+    )
+    project_dir = _create_project_directory(selected_base, selected_name)
+    log_path = resolve_log_path(log_file, project_dir)
+    log_ok, log_error = append_log(
+        log_path,
+        {
+            "command": "init",
+            "run_id": run_id,
+            "input_paths": [str(source_path)] if source_path is not None else [],
+            "output_paths": [str(project_dir)],
+            "image_count": 0,
+            "identity": "not_selected",
+            "feishu_status": "not_attempted",
+            "error_summary": "none",
+            "local_saved": True,
+        },
+    )
+    return {
+        "ok": True,
+        "command": "init",
+        "run_id": run_id,
+        "product_name": selected_name,
+        "project_dir": str(project_dir),
+        "output_dir": str(project_dir),
+        "image_targets": [
+            str(_image_target(project_dir, index).resolve())
+            for index in range(1, MAX_IMAGE_COUNT + 1)
+        ],
+        "text_target": str(_result_target(project_dir).resolve()),
+        "log_file": str(log_path),
+        "log_status": "written" if log_ok else log_error,
+    }
+
+
 def execute_probe(run_id: str, output_dir: Optional[str], log_file: Optional[str]) -> Dict[str, Any]:
     output_path = Path(output_dir).expanduser().resolve() if output_dir else Path.cwd()
     probe = probe_identity()
@@ -810,12 +920,12 @@ def execute_deliver(
     run_id: str,
     dry_run: bool,
     log_file: Optional[str],
-    prefix: str = DEFAULT_PREFIX,
 ) -> Dict[str, Any]:
     output_path = Path(output_dir).expanduser().resolve()
+    _validate_result_text(result_text)
     parsed_images = _parse_image_specs(images)
-    local_images, selected_prefix = _copy_images(parsed_images, output_path, prefix)
-    result_path = _write_result_text(output_path, selected_prefix, result_text)
+    local_images = _copy_images(parsed_images, output_path)
+    result_path = _write_result_text(output_path, result_text)
     try:
         probe = probe_identity()
         delivery = _send_results(probe, local_images, result_text, run_id, dry_run)
@@ -829,16 +939,6 @@ def execute_deliver(
             "error": "delivery_internal_error:{}".format(exc.__class__.__name__),
         }
     summary = _delivery_summary(delivery)
-    try:
-        _append_delivery_status(result_path, summary)
-    except OSError as exc:
-        delivery = {
-            "delivery_status": "failed",
-            "identity": delivery.get("identity") or "local_only",
-            "images_sent": delivery.get("images_sent", 0),
-            "error": "result_status_append_failed:{}".format(exc.__class__.__name__),
-        }
-        summary = _delivery_summary(delivery)
     local_paths = [str(image.path) for image in local_images] + [str(result_path)]
     log_path = resolve_log_path(log_file, output_path)
     log_ok, log_error = append_log(
@@ -859,7 +959,7 @@ def execute_deliver(
         "ok": delivery.get("delivery_status") in ("sent", "dry_run", "local_only"),
         "command": "deliver",
         "run_id": run_id,
-        "output_prefix": selected_prefix,
+        "project_dir": str(output_path),
         "delivery_status": delivery.get("delivery_status"),
         "identity": delivery.get("identity"),
         "images_sent": delivery.get("images_sent"),
@@ -911,6 +1011,8 @@ def execute_log(
 def _log_command_failure(args: argparse.Namespace, error: str) -> Dict[str, Any]:
     command = getattr(args, "command", "unknown")
     output_value = getattr(args, "output_dir", None)
+    if not output_value and command == "init":
+        output_value = getattr(args, "base_dir", None)
     output_dir = Path(output_value).expanduser().resolve() if output_value else Path.cwd()
     log_path = resolve_log_path(getattr(args, "log_file", None), output_dir)
     images = list(getattr(args, "image", None) or [])
@@ -921,13 +1023,11 @@ def _log_command_failure(args: argparse.Namespace, error: str) -> Dict[str, Any]
         input_paths.append(str(Path(path_value).expanduser().resolve()))
     existing: List[str] = []
     if output_dir.is_dir():
-        prefix = sanitize_prefix(getattr(args, "prefix", DEFAULT_PREFIX))
-        for index, role in enumerate(SHOT_ROLES, start=1):
-            existing.extend(
-                str(path.resolve())
-                for path in output_dir.glob("{}-{:02d}-{}.*".format(prefix, index, role))
-            )
-        result_path = _result_target(output_dir, prefix)
+        for index in range(1, MAX_IMAGE_COUNT + 1):
+            image_path = _image_target(output_dir, index)
+            if image_path.is_file():
+                existing.append(str(image_path.resolve()))
+        result_path = _result_target(output_dir)
         if result_path.is_file():
             existing.append(str(result_path.resolve()))
     log_ok, log_error = append_log(
@@ -955,13 +1055,22 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
+    init_parser = subparsers.add_parser(
+        "init", help="Create a collision-safe director project directory"
+    )
+    init_parser.add_argument("--source")
+    init_parser.add_argument("--base-dir")
+    init_parser.add_argument("--product-name")
+    init_parser.add_argument("--run-id", default="init")
+    init_parser.add_argument("--log-file")
+
     probe_parser = subparsers.add_parser("probe", help="Inspect local Feishu delivery readiness")
     probe_parser.add_argument("--run-id", default="probe")
     probe_parser.add_argument("--output-dir")
     probe_parser.add_argument("--log-file")
 
     deliver_parser = subparsers.add_parser(
-        "deliver", help="Persist and deliver zero to five result images plus text"
+        "deliver", help="Persist and deliver zero to six keyframes plus director text"
     )
     deliver_parser.add_argument("--image", action="append", default=[])
     deliver_parser.add_argument("--result-text-stdin", action="store_true", required=True)
@@ -969,7 +1078,6 @@ def _build_parser() -> argparse.ArgumentParser:
     deliver_parser.add_argument("--run-id", required=True)
     deliver_parser.add_argument("--dry-run", action="store_true")
     deliver_parser.add_argument("--log-file")
-    deliver_parser.add_argument("--prefix", default=DEFAULT_PREFIX)
 
     log_parser = subparsers.add_parser("log", help="Append one safe image-generation event")
     log_parser.add_argument("--output-dir", required=True)
@@ -989,7 +1097,15 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     args: Optional[argparse.Namespace] = None
     try:
         args = parser.parse_args(argv)
-        if args.command == "probe":
+        if args.command == "init":
+            result = execute_init(
+                args.source,
+                args.base_dir,
+                args.product_name,
+                args.run_id,
+                args.log_file,
+            )
+        elif args.command == "probe":
             result = execute_probe(args.run_id, args.output_dir, args.log_file)
         elif args.command == "deliver":
             result_text = sys.stdin.read()
@@ -1000,7 +1116,6 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 args.run_id,
                 args.dry_run,
                 args.log_file,
-                args.prefix,
             )
         else:
             result = execute_log(
