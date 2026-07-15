@@ -1,169 +1,323 @@
-PRODUCT VIDEO DIRECTOR RULES
+PRODUCT VIDEO PROMPT AND PLAN CONTRACT
 
-The job is to direct one five-segment commercial, not to create unrelated product posters.
+Use this file with category-playbooks.md. The playbook chooses route-specific actions and physics; this file defines the strict plan, image prompt, video prompt, QC, and final text.
 
-NON-NEGOTIABLE PRODUCT TRUTH
+CONTENTS
 
-1. The clearest supplied product image is the permanent identity source. If the attachment has no local path, a QC-approved neutral local proxy transports only those visible facts across later calls.
-2. Preserve the same one product: visible silhouette, proportions, count, color blocks, material cues, parts, openings, seams, controls, logo position, readable label layout, and packaging geometry.
-3. Keep unclear or hidden regions neutral. Never complete unreadable text, hidden geometry, accessories, ports, functions, claims, specifications, or materials.
-4. A style image controls only palette, light, environment, composition, depth, mood, and camera language. Never copy its product, person, logo, text, packaging, or brand.
-5. One frame contains one product instance. Avoid mirrors, complete reflections, foreground copies, background copies, decorative miniatures, or an added screen image that creates a second recognizable product. A screen physically belonging to the real product remains unchanged.
-6. Every frame is one full-frame 9:16 raster image. Captions, CTA, price, badges, UI, borders, watermarks, collages, grids, split screens, and storyboard sheets are excluded.
+- Prompt engine notes and engine profile selection
+- Director plan JSON contract
+- Plan quality gates
+- Adjacent-anchor reachability and camera roles
+- Form-factor identity and physics locks
+- Anchor image prompt and scene-preview gate
+- Targeted retry and image/sequence QC
+- First-last-frame video prompt templates
+- Final-film copy and final TXT contract
 
-INTERNAL CONCEPT SELECTION
+PROMPT ENGINE NOTES
 
-Before generating, silently propose three different commercial ideas. Each idea must contain:
+- Google video guidance: make subject, action, scene/context, camera angle, and one purposeful camera movement explicit. A locked camera is valid. Describe subtle temporal evolution instead of vague style adjectives. When an engine accepts negative prompts, list unwanted conditions rather than writing command-like “do not” sentences.
+- LTX-Video: describe actions and scene chronologically in one flowing paragraph; include literal movement, appearance, camera, and environment; begin with the action and stay under 200 words.
+- Wan first-last-frame video: prefer Chinese prompts. Prompt expansion may add detail, but it must not add a second action, unverified function, or new identity feature.
+- Feishu reference workflow: establish style/context references and clear product references first, generate scene previews, review and revise prompts, then use the approved images and prompt for video. In this skill, anchor 01 is the scene-preview gate and becomes world_plate.
+- Cross-model prompt craft: earlier information carries more weight. Start with the visible change, use one action and one purposeful camera behavior, and remove one demand before adding detail to a failed prompt.
+- Reference inputs need jobs. The product source locks identity/material; the previous anchor locks incoming state; the destination anchor locks the exact endpoint; world_plate locks room/light. Do not treat every reference as an undirected style moodboard.
 
-- one sentence visual premise;
-- one verified product truth it makes memorable;
-- one visual motif that can evolve across all five segments;
-- one causal action chain from anchor 01 to anchor 06;
-- one feasible transition grammar.
+ENGINE PROFILE SELECTION
 
-The three ideas must use different causal mechanisms, not the same pedestal sequence in different colors. Score each from 1 to 5 for product fidelity, immediate visual impact, causal clarity, continuity feasibility, and category relevance. Execute only the highest total. Reject any idea that depends on an unverified function or product redesign, or uses two or more generic light-sweep, push-in, and hero-pose beats. Do not expose this comparison unless the user asks.
+- `motion_only_i2v` for Veo/Flow/Runway with a strong source frame: the image already defines product, room, light, and composition. Write only the single subject action, one camera behavior, simple environment response, timing, and end state. Avoid re-describing appearance in prose; keep identity/physics as a compact lock.
+- `chronological_shot` for LTX/Wan or when the engine needs a fuller description: write one literal chronological paragraph covering the same single action, contact/path/dynamics, camera, environment, and endpoint. Keep LTX under 200 words; keep Wan prompt expansion near 80-100 words and prefer Chinese for first-last-frame generation.
+- `editorial_bridge` for an explicitly edited two-beat segment in the same established task: one beat ends, one occlusion/match_action cut occurs, and the second beat lands on the supplied end frame. Use only with a multi-shot-capable engine or NLE; never send it to a pure interpolation-only i2v path. It may compress ordinary setup or a necessary tool/view change, but cannot hide SKU, material-state, water-mark, offcut, or identity discontinuity.
+- First-last-frame mode always describes only the physically reachable change between supplied frames. Never use either pure-i2v profile to add an extra event or contradict the visual references. `editorial_bridge` is an edited two-beat delivery mode, not first-last-frame interpolation.
+- Do not impose a minimum word count. A simple i2v transition should stay short once action, consequence, camera role, endpoint, and continuity lock are present.
 
-SHARED-ENDPOINT ARCHITECTURE
+DIRECTOR PLAN JSON CONTRACT
 
-Five video segments require six anchors:
+Keep this JSON in memory and send it to scripts/check_plan.py through UTF-8 stdin. The example shows the required shape; actual plans require six anchors and five segments.
 
-01.png -> segment 01 -> 02.png
-02.png -> segment 02 -> 03.png
-03.png -> segment 03 -> 04.png
-04.png -> segment 04 -> 05.png
-05.png -> segment 05 -> 06.png
+{
+  "product": {
+    "name": "safe product name",
+    "route": "window_textile | window_film | adhesive_decal | small_label | sealing_film | surface_covering | seasonal_decor | fallback_household",
+    "form_factor": "rigid | textile_panel | tensioned_mesh | roll_to_sheet | decal_transfer | consumable_film",
+    "identity_key": "same SKU, color, artwork, edge, hardware, roll core, and accessory set",
+    "reference_packet": [
+      {
+        "role": "identity_truth | scale_context | installation_truth | action_truth | result_truth | exact_print_truth | world_plate",
+        "source": "source path or attachment identifier",
+        "identity_match": "same_sku | same_variant | not_applicable"
+      }
+    ],
+    "facts": [
+      {
+        "id": "F1",
+        "observed": "one atomic visible fact",
+        "source": "source image",
+        "region": "visible region",
+        "evidence_kind": "identity | scale | installation | action | result | exact_text",
+        "confidence": "high | medium",
+        "allowed_claims": ["observed", "aesthetic"]
+      }
+    ],
+    "uncertainties": ["one hidden, blurred, mismatched, or unproven item"]
+  },
+  "creative": {
+    "spine": "one ordinary task moving from need to resumed life",
+    "selling_point": "one evidence-backed point",
+    "selling_point_fact_ids": ["F1"],
+    "selling_point_claim_type": "observed | aesthetic | functional",
+    "daily_trigger": "the ordinary need already visible in anchor 01",
+    "preparation": "the exact measuring, cleaning, selecting, or placement step",
+    "application": "the one decisive route-legal operation",
+    "visible_verification": "one restrained visible check permitted by evidence",
+    "return_to_life": "the original activity that resumes in anchor 06",
+    "ordinary_setting": "one specific lived-in home, classroom, or shop space",
+    "causal_sentence": "because preparation and application continue, verification is earned; therefore daily life resumes"
+  },
+  "realism": {
+    "location": "ordinary specific place",
+    "time_of_day": "specific time",
+    "lighting": "one practical or natural key source",
+    "lens": "35mm | 40mm | 45mm | 50mm equivalent",
+    "actor": "one adult or at most two hands with a believable role",
+    "life_traces": ["purposeful lived-in detail one", "purposeful lived-in detail two"],
+    "background_activity": "the ordinary activity that continues around the task",
+    "visual_style": "natural ecommerce photography, moderate depth, accurate contact shadows"
+  },
+  "anchors": [
+    {
+      "id": "01",
+      "state_id": "S1",
+      "phase": "need",
+      "scene": "one stable scene identifier shared by 01-06",
+      "state": "complete visible endpoint unique to this anchor",
+      "product_phase": "rolled, folded, selected, aligned, attached, sealed, or in-use state",
+      "deformation_state": "route-legal shape, fold, tension, peel boundary, or roll state",
+      "surface_contact": "exact contact with glass, frame, cup rim, table, wall, hand, or machine",
+      "actor_state": "hand/body position and current ordinary activity",
+      "tool_state": "where every introduced tool, backing, offcut, cup, or prop remains",
+      "camera_family": "master | detail | closure, or another set capped at three",
+      "camera_side": "interior | exterior | same_space",
+      "shot_size": "wide | medium | medium_close | close | macro",
+      "screen_axis": "camera side, screen position, and action direction"
+    }
+  ],
+  "segments": [
+    {
+      "id": "01",
+      "from": "01",
+      "to": "02",
+      "from_state_id": "S1",
+      "to_state_id": "S2",
+      "narrative_job": "daily_trigger",
+      "cause": "the complete start-anchor state",
+      "effect": "the complete end-anchor state",
+      "prompt_mode": "motion_only_i2v | chronological_shot | editorial_bridge",
+      "visual_focus": "the one thing the viewer should notice in this segment",
+      "visible_change": "one physically reachable change between the supplied frames",
+      "physical_consequence": "one visible result caused directly by that action",
+      "information_type": "context | task_progress | product_fact | result",
+      "new_information": "one new task step, context, fact, or result",
+      "action": {
+        "subject": "one visible subject",
+        "action_family": "one action allowed by the selected route",
+        "motion": "one literal physical action",
+        "direction": "path, screen direction, and range",
+        "speed": "ordinary speed and endpoint easing",
+        "resistance": "gravity, friction, tension, machine resistance, or near-zero resistance",
+        "contact": "continuous hand/product/surface contact",
+        "end_state": "exact text of the destination anchor state"
+      },
+      "action_basis": "reference | route_default",
+      "action_fact_ids": ["F2"],
+      "camera": {
+        "role": "hold_context | follow_contact | reveal_result | bridge_space | return_to_master",
+        "move": "locked | handheld_hold | short_follow | short_track | gentle_tilt | small_push_in",
+        "motivation": "why this one behavior reveals contact, follows action, or reads the result"
+      },
+      "background_response": "one direct passive response, or a stable background",
+      "fact_ids": ["F1"],
+      "claim_type": "none | observed | aesthetic | functional",
+      "copy": "specific short line or 无",
+      "copy_role": "none | need | condition | proof | closure",
+      "copy_basis": "none | context | fact | result",
+      "copy_reference": "the concrete object, condition, or fact behind the line; empty only for 无",
+      "copy_visual_evidence": "what the target anchor visibly shows; empty only for 无",
+      "transition": "none | occlusion | match_action"
+    }
+  ]
+}
 
-Anchor N is both the result of segment N-1 and the starting state of segment N. Design it once and reuse it. Do not generate separate look-alike frames for the same handoff.
+Required anchor phases:
 
-The six anchors must form a causal progression:
+- 01 need
+- 02 ready
+- 03 aligned
+- 04 applied
+- 05 verified
+- 06 resumed
 
-- 01: an immediately legible opening state with tension, curiosity, or a visual trigger.
-- 02: the visible result of the first beat and a new question or direction.
-- 03: a motivated interaction, spatial change, or factual product reveal.
-- 04: a verified detail, material response, or visual payoff caused by the prior beat.
-- 05: the resolved product state; a use result only when the reference proves that use.
-- 06: a stable final memory image that is visibly earned by anchors 01-05.
+Required segment jobs and mappings:
 
-Adapt these functions to the product. They are narrative jobs, not fixed camera angles. If use cannot be verified, move light, foreground, camera, atmosphere, or a neutral physical prop instead of inventing product behavior.
+- 01: 01 -> 02, daily_trigger
+- 02: 02 -> 03, prepare
+- 03: 03 -> 04, apply
+- 04: 04 -> 05, verify
+- 05: 05 -> 06, return
 
-CONTINUITY LEDGER
+PLAN QUALITY GATES
 
-Track static continuity for every anchor:
+1. IDENTITY PACKET: identity_truth is mandatory. Select sources by visual identity, not folder name. small_label also requires exact_print_truth.
+2. ONE ORDINARY TASK: one person, one coherent scene, one small need, one continuous operation, and one return to life.
+3. ROUTE PHYSICS: route and form_factor agree. Every action_family is allowed by that route. The fifth segment uses a route-specific return action.
+   Installation-sensitive actions such as press_frame, hang, squeegee/trim/press_edge, press_seal, and secure require matching installation/action evidence; route_default cannot invent hardware or machine structure.
+4. EXACT STATES: state_id values are unique; segment from_state_id/to_state_id match anchors; action.end_state equals the visible destination state.
+5. REACHABILITY: visible_change contains one main action and one direct physical consequence. If start and end states need multiple hidden installation steps, repair the later anchor before generation.
+6. CONTACT: installation operations name contact, path, speed, resistance, and endpoint. Verification and return segments do not invent product contact or friction when the shot does not show it. Flexible products may legally change form while identity and material behavior remain locked.
+7. EVIDENCE: product_fact/result information uses fact_ids. Functional claims cite only result evidence that explicitly allows functional claims.
+8. NATURALISM: one ordinary place, one main light, 35-50mm equivalent view, one actor, two or three purposeful life traces, and no spectacle language.
+9. CAMERA: one camera role and one behavior per shot. Locked camera is preferred when movement does not reveal anything. Macro appears at most once. Pure-i2v modes require `transition=none`; `editorial_bridge` requires exactly one occlusion/match_action cut inside the same established task.
+10. COPY: zero to three lines. Prepare/apply default to 无. A non-empty line has a copy_role, copy_basis, copy_reference, and target-anchor copy_visual_evidence. Generic slogans and action-tutorial captions fail.
+11. EARNED RETURN: anchor 06 resumes the opening activity in the same space. A pedestal, packshot wall, or unrelated final poster fails.
 
-- product position, orientation, scale, state, and contact surface;
-- hand/person position and exact contact, if any;
-- scene geometry and screen axis;
-- foreground and background landmarks;
-- key-light direction, softness, color temperature, and time of day;
-- exact incoming physical state at the instant of the frame;
-- exact outgoing physical state from which the next segment can begin.
+ADJACENT-ANCHOR REACHABILITY AND CAMERA ROLES
 
-Hard rules:
+- Write visible_change before writing a prompt. If it needs “and then” more than once, split/rebuild the endpoint.
+- Use `hold_context` for ordinary need, `follow_contact` for tool/material contact, `reveal_result` for a complete verification area, `bridge_space` for one existing doorway, and `return_to_master` to recover the opening axis.
+- Default to locked. Use short_track only to follow a contact path, small_push_in only to make a result readable, and short_follow only to cross an already visible passage.
+- `transition=none` is mandatory for `motion_only_i2v` and `chronological_shot`. `editorial_bridge` requires exactly one `occlusion` or `match_action`; it can compress ordinary setup/tool handling or a necessary verify/return viewpoint change, but cannot hide product-state, water-mark, offcut, tool, or identity discontinuity.
+- Camera movement and complex subject movement cannot both dominate. When the hand/tool is the action, keep the room stable. When crossing a doorway is the action, do not add product handling.
 
-- A segment starts exactly at its first anchor and lands exactly at its second anchor.
-- Motion direction does not reverse without a visible cause.
-- An action does not restart in the next segment.
-- Spatial jumps require a motivated occlusion, light wipe, focus transition, motion blur, or deliberate cut point.
-- Use the previous approved anchor only as the instantaneous continuity source. The original product image, or its QC-approved neutral local proxy, remains the identity source.
+FORM-FACTOR IDENTITY AND PHYSICS LOCKS
 
-SHOT DESIGN AND ANTI-REPETITION
+Choose one block and insert it positively into every anchor/video prompt:
 
-Plan a camera signature for each of the five segments:
-
-shot size | camera height | horizontal angle | lens character | subject screen position | one camera move | one visible beat | end state
-
-- Adjacent segments cannot repeat the same shot size, camera height, horizontal angle, or camera move as a complete combination.
-- Across five segments, use at least four distinct camera signatures.
-- Each segment has exactly one principal camera move and one visible beat.
-- Top-down is allowed at most once. A rear view is allowed only when the rear contains real information. A centered hero composition is allowed at most twice.
-- Do not mechanically cycle through front, back, left, right, top, and bottom.
-- Every camera change must reveal information, intensify an action, or deliver a payoff.
-- A large first-to-last-frame change must still be physically achievable by the one named camera move.
-
-VISUAL IMPACT WITHOUT EMPTY ADJECTIVES
-
-Do not substitute words such as stunning, cinematic, premium, masterpiece, epic, or 8K for actual art direction.
-
-Specify concrete choices instead:
-
-- key-light shape and direction;
-- shadow edge and reflection shape;
-- surface texture and scale;
-- foreground occlusion and depth layers;
-- atmospheric particles, mist, condensation, or fabric movement when category-appropriate;
-- speed, weight, resistance, and settling of motion;
-- one controlled color contrast that develops across the sequence.
-
-Allow bold architecture, material worlds, volume light, macro scale, and graphic color fields. Keep the product physically grounded and identity-locked. Avoid generic repeated pedestal shots, random floating parts, explosions, crowded props, and effects that imply a false function.
+- rigid: stable silhouette, proportions, part count, seams, controls, labels, orientation, scale, and grounded contact.
+- textile_panel: stable color, weave cues, print scale, edge treatment, header/track and width; shape may fold and drape under gravity according to the planned state.
+- tensioned_mesh: stable mesh density, color, edge tape/frame, zipper/magnet layout and installed span; loose material may flex, installed material remains tensioned between verified attachment points.
+- roll_to_sheet: stable material, width, print/opacity, roll core and feed direction; the remaining roll becomes smaller only as the visible sheet length increases; adhered regions are coplanar with the surface.
+- decal_transfer: stable exact artwork, text, border, color, scale, cut line and orientation; backing and decal separate at one peel boundary; adhered regions stay flush to the target surface.
+- consumable_film: stable roll width, core, repeated print interval, feed direction and film thickness cues; the web remains continuous through the machine and only the verified cup-rim area is sealed/cut.
 
 ANCHOR IMAGE PROMPT TEMPLATE
 
-Create one photorealistic vertical 9:16 commercial anchor frame: {ANCHOR_ID}. This is one complete image, not a collage, contact sheet, split screen, or multi-panel storyboard.
+Create one photorealistic full-frame vertical 9:16 ecommerce endpoint image for anchor {ANCHOR_ID}. One ordinary real place: {LOCATION}, {TIME_OF_DAY}, lit mainly by {LIGHTING}. The same {ACTOR} is doing one believable household/shop task. Two or three purposeful lived-in details remain visible: {LIFE_TRACES}. Natural {LENS} equivalent viewpoint at {CAMERA_HEIGHT}, {SHOT_SIZE}, moderate depth of field, accurate scale, contact shadows, and restrained reflections.
 
-PRODUCT IDENTITY SOURCE: {PRODUCT_IDENTITY_LOCK}
+REFERENCE AUTHORITY
+Identity truth: {IDENTITY_TRUTH_AND_IDENTITY_KEY}
+Scale/context truth: {SCALE_CONTEXT_OR_UNKNOWN}
+Installation/action truth: {INSTALLATION_ACTION_TRUTH_OR_ROUTE_DEFAULT}
+Exact print truth: {EXACT_PRINT_TRUTH_OR_KEEP_UNREADABLE}
+Previous approved anchor: {PREVIOUS_ANCHOR_ROLE}
+Permanent world plate: {WORLD_PLATE_ROLE}
 
-STYLE-ONLY SOURCE: {STYLE_ROLE_LOCK}
+CURRENT ENDPOINT ONLY
+Everyday loop: {CREATIVE_SPINE}
+Current phase: {PHASE}
+Previous endpoint: {PREVIOUS_STATE}
+One completed state change: {VISIBLE_DELTA}
+Current visible endpoint: {CURRENT_STATE}
+Product phase and legal deformation: {PRODUCT_PHASE}; {DEFORMATION_STATE}
+Exact surface contact: {SURFACE_CONTACT}
+Actor endpoint: {ACTOR_STATE}
+One newly readable task step/fact: {NEW_INFORMATION_AND_FACT_IDS}
 
-PREVIOUS ANCHOR ROLE: {PREVIOUS_ANCHOR_ROLE}
-Use the previous anchor only to preserve the same world, spatial axis, light direction, product state, and incoming action. Depict the causal end state reachable through the segment's one planned camera path; do not copy the previous framing or duplicate its product.
+FROZEN WORLD
+Scene and landmarks: {SCENE_AND_LANDMARKS}
+Screen axis and action direction: {SCREEN_AXIS}
+Key-light direction and color: {KEY_LIGHT_LOCK}
+Background activity: {BACKGROUND_ACTIVITY}
 
-DIRECTOR PREMISE: {DIRECTOR_PREMISE}
-CAUSAL CHAIN POSITION: {CAUSE_AND_NEW_INFORMATION}
-EXACT ANCHOR STATE: {ANCHOR_STATE}
-PRODUCT POSITION AND ORIENTATION: {PRODUCT_POSITION}
-ANCHOR CAMERA STATE: {SHOT_SIZE}; {CAMERA_HEIGHT}; {HORIZONTAL_ANGLE}; {LENS_CHARACTER}; product at {SCREEN_POSITION}.
-DEPTH DESIGN: {FOREGROUND_MIDGROUND_BACKGROUND}
-LIGHT AND MATERIAL DESIGN: {LIGHT_MATERIAL_DESIGN}
-INCOMING HANDOFF: {INCOMING_HANDOFF}
-OUTGOING POSSIBILITY: {OUTGOING_POSSIBILITY}
+PHYSICAL AND IDENTITY LOCK
+{SELECTED_FORM_FACTOR_LOCK}
+Preserve the same SKU, color, artwork, readable text, edge treatment, hardware/accessory set, material cues, scale, and verified installation method. Unreadable text stays unresolved. The current state is physically reachable from the previous state by the planned single action.
 
-The product is dominant, physically plausible, sharply readable where intended, and integrated through accurate contact shadow, scale, reflection, and material response. Keep one product only. Preserve every clearly visible identity feature and label layout; text that was unreadable in the source remains unreadable. Keep text overlays, invented packaging text, duplicate products, full mirror images, impossible reflections, warped hands, floating contact, clutter, borders, and UI outside the image.
+Render the still aftermath at the exact endpoint, not a montage, motion trail, storyboard, before/after split, or future action. One product family only; no cross-SKU parts or duplicate instances.
 
-For anchor 01, replace PREVIOUS ANCHOR ROLE and INCOMING HANDOFF with “opening state; no previous frame.”
+Excluded conditions: black studio, display pedestal, luxury show home, levitation, floating parts, particles, sparks, smoke, volumetric beams, energy effects, storm-blown fabric, magical before/after, invented tools, unverified result visualization, duplicate product, full mirror copy, warped hands, missing contact shadow, captions, CTA, watermark, UI, border, collage, split screen.
+
+For anchor 01:
+
+- Previous approved anchor: none; establish the unresolved everyday state.
+- World plate: this approved image becomes the permanent world plate.
+- Visible delta: none.
+
+SCENE-PREVIEW GATE FOR 01
+
+Reject anchor 01 before continuing when any item fails:
+
+- It looks like a studio, concept ad, luxury showroom, or empty CGI room rather than a plausible lived-in place.
+- Product scale, window/cup/hand relationship, actor role, or installation surface is unclear.
+- More than three decorative background objects compete with the task.
+- Light comes from several dramatic directions or creates visible haze/beams.
+- The opening need cannot naturally lead to the selected route's first action.
 
 TARGETED ANCHOR RETRY
 
-Regenerate only anchor {ANCHOR_ID}. The prior candidate failed because: {ONE_SPECIFIC_DEFECT}. Preserve the selected director premise, exact product identity, continuity state, anchor camera state, and lighting world. Correct only the named defect. Return one full-frame 9:16 image.
+Regenerate only anchor {ANCHOR_ID}. The prior candidate failed for one visible reason: {ONE_SPECIFIC_DEFECT}. Preserve product truth, exact print, route, form factor, approved endpoint, world plate, scene landmarks, screen axis, actor identity, key light, and every item not named in the defect. Correct only that defect and return one full 9:16 endpoint image.
 
-SINGLE-FRAME QC
+Name visible corrections: wrong SKU/color/artwork, illegal rigid film, fabric defying gravity, missing mesh tension, broken roll continuity, wrong peel boundary, cup-rim misalignment, hand losing contact, room drift, wrong endpoint, duplicate product, or fake spectacle.
 
-- Product identity and count match the truth image.
-- The causal state is legible without explanatory copy.
-- One dominant focal idea; clear hierarchy; at least two useful depth layers.
-- The anchor camera state is reachable through its segment's one camera path and is not an unmotivated duplicate of an earlier anchor.
-- Product contact, shadow, reflection, scale, hands, and materials are plausible.
-- No invented text, feature, accessory, function, specification, extra product, or full duplicate reflection.
-- Full-frame 9:16; no captions, CTA, watermark, UI, border, collage, or split screen.
+SINGLE-FRAME QC ORDER
+
+1. SKU: same color, artwork/text, edges, hardware, accessories, and scale.
+2. PHYSICS: legal material shape, gravity/tension/roll/peel/feed behavior, and verified installation method.
+3. CONTACT: hands, surface, frame, cup rim, machine, and shadows meet correctly.
+4. ENDPOINT: current anchor state and one information change are visible without explanation.
+5. WORLD: same actor, room, landmarks, axis, and light.
+6. NATURALISM: ordinary location and behavior; no studio spectacle, magic proof, or hero-poster composition.
 
 SEQUENCE QC
 
-After all anchors exist, review 01 through 06 as one sequence and score 1-5:
+Review 01-06 in order. Fail when an action restarts, reverses, teleports, changes SKU, changes artwork/text, violates form-factor physics, loses contact, changes room/light without cause, invents a result, or ends outside the original daily activity. Repair the earliest later anchor that causes the break and re-check forward.
 
-- product fidelity;
-- causal progression;
-- handoff continuity;
-- camera differentiation;
-- visual impact;
-- final payoff.
+FIRST-LAST-FRAME VIDEO PROMPT TEMPLATE
 
-Any score below 4 is a failure. Repair the earliest later anchor that causes the break, then re-check forward and regenerate only dependent anchors that no longer fit. One forward repair pass maximum; the first concept remains within three calls per anchor. If causal progression or visual impact fails across two or more segments, treat the concept—not one frame—as defective and allow one complete trial of the second-ranked idea in temporary storage, exactly one call per anchor with no retries. The whole run is capped at four calls per anchor. Keep only the higher-scoring complete chain. A beautiful frame that breaks the sequence is not acceptable.
+`motion_only_i2v` Chinese (default when frames are strong):
 
-VIDEO PROMPT RULES
+动作从首帧立即开始：{SUBJECT}只完成一次{ACTION_FAMILY}——{EXACT_MOTION}，沿{PATH_AND_DIRECTION}移动并在{CONTACT}保持真实接触；动作直接造成{PHYSICAL_CONSEQUENCE}。镜头{ONE_CAMERA_BEHAVIOR}，只为{CAMERA_ROLE_AND_MOTIVATION}。保持真实速度，末端停稳，精确落到尾帧的“{EXACT_END_STATE}”。保持同一 SKU、尺度、人物、房间地标和主光连续。
 
-Each numbered segment receives exactly one concise prompt. The supplied start and end frames already define product appearance, scene, composition, and light; do not redescribe them.
+`chronological_shot` Chinese (Wan/LTX when fuller context is required):
 
-Use this order:
+{SUBJECT}从首帧姿态开始，以{SPEED}完成一次{ACTION_FAMILY}：{EXACT_MOTION}，沿{PATH_AND_DIRECTION}移动，在{CONTACT}保持接触并呈现{RESISTANCE_OR_TENSION}；经过后只出现{PHYSICAL_CONSEQUENCE}。镜头{ONE_CAMERA_BEHAVIOR}，岗位是{CAMERA_ROLE}，目的是{CAMERA_MOTIVATION}。动作末端自然减速并停到尾帧的“{EXACT_END_STATE}”。{SELECTED_FORM_FACTOR_LOCK}；同一 SKU、尺度、人物、场景轴线和光线保持连续。
 
-1. one visible subject or environment action, including part/body, direction, speed, range, weight, or resistance;
-2. one motivated camera move;
-3. optionally, one passive environment response that is a direct consequence or natural continuation of the main action—not a second event;
-4. inertia and the exact landing state shown by the end frame;
-5. positive identity and continuity locks.
+`editorial_bridge` Chinese (multi-shot engine or NLE only; never pure interpolation i2v):
 
-Write one short paragraph. Do not use 0-3 second timelines. Do not add a second event, second camera move, new person, new prop, new text, new product part, cutaway, montage, or scene change.
+第一拍从首帧立即承接：{BEAT_ONE_ACTION_AND_VISIBLE_CONSEQUENCE}。当{EXISTING_OCCLUDER_OR_MATCHED_ACTION}占满或对齐画面时，只做一次{OCCLUSION_OR_MATCH_ACTION}切镜；第二拍仍在同一任务与同一空间中，{BEAT_TWO_ACTION}，随后停到尾帧的“{EXACT_END_STATE}”。两拍保持同一 SKU、人物、工具清单、材料状态演进、场景地标和主光；切镜不隐藏水痕、余料、商品状态或身份变化。成片按两镜头剪辑，不作为纯首尾帧插值提交。
 
-UNIVERSAL FIRST-AND-LAST-FRAME VIDEO TEMPLATE
+English motion-only variant:
 
-{ONE_VISIBLE_ACTION}. The camera performs one {CAMERA_MOVE}. {OPTIONAL_PASSIVE_ENVIRONMENT_RESPONSE} Continue the incoming direction and physical inertia smoothly, then settle exactly into the supplied end frame. Maintain one unchanged product with stable geometry, proportions, color, material, part count, and visible logo/label layout; unreadable text stays unresolved, with continuous space, stable light, natural contact, and temporal consistency.
+Starting immediately from the supplied first frame, {SUBJECT} performs one {ACTION_FAMILY}: {EXACT_MOTION} along {PATH_AND_DIRECTION}, maintaining contact at {CONTACT}; the direct visible consequence is {PHYSICAL_CONSEQUENCE}. The camera uses {ONE_CAMERA_BEHAVIOR} only to {CAMERA_ROLE_AND_MOTIVATION}. Keep a natural real-time pace, settle, and land exactly on the supplied end-frame state: {EXACT_END_STATE}. Preserve the same SKU, scale, actor, room landmarks, and key light.
 
-The final TXT defaults to concise Chinese prompts for readability. Translate the structure, not the amount of detail, when the user requests another language.
+Do not append a long negative list. A direct prompt may end with “无字幕、无水印” when needed. Only an approved `editorial_bridge` may name its single `occlusion` or `match_action`; the two pure-i2v profiles do not add cuts, montage, time codes, or a second event.
+
+FINAL-FILM COPY
+
+Copy is optional. Use zero to three lines across five segments. Give a line one job: `need`, `condition`, `proof`, or `closure`. Prepare/apply segments default to 无; the hands already explain cleaning, aligning, smoothing, trimming, peeling, or sealing.
+
+Build each kept line from:
+
+target-anchor visible evidence -> safe everyday meaning/necessary condition -> shortest spoken line
+
+Before keeping a line, point to the exact target anchor and answer “what visible object or result authorizes every word?” If the answer relies on instructions, category assumptions, or a different frame, delete or rewrite it. Functional conditions belong in the sentence.
+
+Privacy-film example: `临街坐着，难免在意路过的人。` (need, anchor 01), `白天外面更亮时，窗面先映出街景。` (condition/proof, exterior verification), `回到里面，窗外还是看得见。` (closure, interior resumed state). Do not use `膜要先留足裁边余量` or `再沿玻璃边缘裁齐` as finished-film copy.
+
+Reject generic lines containing: 重新定义品质, 品质之选, 极致体验, 非凡之选, 开启美好生活, 不止于此, 匠心品质, 高端大气, 细节自会说话, 留下这一眼, 轻松搞定, 不止好看, 一步到位, 质感拉满.
+
+FINAL TXT CONTRACT
+
+项目：<商品名>
+规格：9:16｜5 段｜每段 4–6 秒
+商品路线：<route>｜<form_factor>
+日常场景：<普通地点、人物和小任务>
+完整闭环：<需求→准备→操作→验证→回到生活>
+传播重点：<一个证据支持的重点>
+
+01｜<short shot name>
+生活动作：日常触发
+首尾帧：01.png → 02.png
+视频提示词：<one flowing concrete paragraph>
+字幕/旁白：<specific line or 无>
+
+02 uses 准备, 03 uses 关键操作, 04 uses 可见验证, and 05 uses 回到生活. Keep exactly five blocks and mappings 01->02 through 05->06. Do not append evidence tables, absolute paths, generation statistics, negative-prompt dumps, or delivery status.

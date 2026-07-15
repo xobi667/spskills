@@ -1,6 +1,4 @@
 interface:
-  display_name: "商品视频导演台"
-  short_description: "上传商品图即出连续首尾帧、五段提示词并投递本人飞书"
-  default_prompt: "使用 $product-video，直接把我上传的商品图制作成专业视频导演台：新建项目文件夹，生成六张连续 9:16 首尾锚点帧和五条一段一提示词，并尝试发给当前飞书本人。"
-policy:
-  allow_implicit_invocation: true
+  display_name: "自然商品视频导演台"
+  short_description: "按真实品类物理和日常闭环生成连续分镜、视频提示词与克制文案"
+  default_prompt: "使用 $product-video，把我上传或指定路径的商品素材制作成自然日常、物理可信且完整闭环的五段竖屏视频方案。"

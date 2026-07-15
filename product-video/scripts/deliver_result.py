@@ -30,6 +30,40 @@ SHOT_KEYS = tuple("{:02d}".format(index) for index in range(1, 7))
 MAX_IMAGE_COUNT = len(SHOT_KEYS)
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 CLI_TIMEOUT_SECONDS = 120
+NARRATIVE_TASKS = ("日常触发", "准备", "关键操作", "可见验证", "回到生活")
+NO_COPY_VALUES = {"无", "none", "no copy", "n/a"}
+COPY_ALLOWED_SEGMENTS = {"01", "04", "05"}
+BANNED_COPY_LINES = {
+    "重新定义品质",
+    "品质之选",
+    "极致体验",
+    "非凡之选",
+    "开启美好生活",
+    "不止于此",
+    "匠心品质",
+    "高端大气",
+    "细节自会说话",
+    "留下这一眼",
+    "轻松搞定",
+    "不止好看",
+    "一步到位",
+    "质感拉满",
+}
+BANNED_PROCESS_COPY_FRAGMENTS = {
+    "擦净玻璃", "清洁玻璃", "留足裁边", "裁边余量", "对准边缘", "慢慢刮平",
+    "沿边刮平", "沿边裁齐", "沿边裁切", "揭开背纸", "逐段压平",
+}
+PROMPT_STRUCTURE_PATTERNS = (
+    re.compile(r"接触|贴合|沿|拉|压|刮|封|移动|contact|along|press|draw|squeegee|seal|move", re.IGNORECASE),
+    re.compile(r"镜头|camera", re.IGNORECASE),
+    re.compile(r"造成|经过后|水痕|余料|贴平|落稳|映出|看见|继续|到达|完成|result|consequence|after|continues", re.IGNORECASE),
+    re.compile(r"尾帧|末端|停稳|停到|落到|end[ -]?frame|endpoint|settle", re.IGNORECASE),
+    re.compile(r"同一|保持.{0,8}连续|不变|same|preserve|continuity", re.IGNORECASE),
+)
+BANNED_PROMPT_TERMS = re.compile(
+    r"cinematic|epic|masterpiece|\b8k\b|黑棚|展示底座|漂浮|粒子|火花|烟雾|体积光|光束|能量波|爆炸|豪宅|英雄镜头|蒙太奇|时间轴|多机位|orbit|whip[ -]?pan|crash zoom|\[00:00",
+    re.IGNORECASE,
+)
 
 NOTICE_ENV = {
     "LARKSUITE_CLI_NO_UPDATE_NOTIFIER": "1",
@@ -544,9 +578,11 @@ def _has_valid_png_header(path: Path) -> bool:
     width = int.from_bytes(header[16:20], "big")
     height = int.from_bytes(header[20:24], "big")
     bit_depth, colour_type, compression, filtering, interlace = header[24:29]
+    aspect = width / height if height else 0
     return (
-        width > 0
-        and height > 0
+        width >= 640
+        and height >= 1024
+        and abs(aspect - (9 / 16)) <= 0.04
         and bit_depth in {1, 2, 4, 8, 16}
         and colour_type in {0, 2, 3, 4, 6}
         and compression == 0
@@ -629,7 +665,7 @@ def _write_result_text(output_dir: Path, result_text: str) -> Path:
 
 
 def _validate_result_text(result_text: str) -> None:
-    """Require the compact 5-segment/6-frame director-console schema."""
+    """Require the natural everyday-loop 5-segment/6-frame result schema."""
     normalized = result_text.lstrip("\ufeff").replace("\r\n", "\n").replace("\r", "\n")
     lines = [line.strip() for line in normalized.split("\n") if line.strip()]
     if len(lines) < 2 or not re.fullmatch(r"项目[：:]\s*\S.*", lines[0]):
@@ -641,6 +677,26 @@ def _validate_result_text(result_text: str) -> None:
     if cursor < len(lines) and re.fullmatch(r"生图[：:]\s*\S.*", lines[cursor]):
         cursor += 1
 
+    if cursor >= len(lines) or not re.fullmatch(
+        r"商品路线[：:]\s*(?:window_textile|window_film|adhesive_decal|small_label|sealing_film|surface_covering|seasonal_decor|fallback_household)\s*[|｜]\s*\S.*",
+        lines[cursor],
+    ):
+        raise DeliveryError("director_text_requires_route_line")
+    cursor += 1
+    if cursor >= len(lines) or not re.fullmatch(r"日常场景[：:]\s*\S.*", lines[cursor]):
+        raise DeliveryError("director_text_requires_everyday_scene_line")
+    cursor += 1
+    if cursor >= len(lines) or not re.fullmatch(r"完整闭环[：:]\s*\S.*", lines[cursor]):
+        raise DeliveryError("director_text_requires_loop_line")
+    cursor += 1
+    if cursor >= len(lines) or not re.fullmatch(r"传播重点[：:]\s*\S.*", lines[cursor]):
+        raise DeliveryError("director_text_requires_selling_point_line")
+    cursor += 1
+
+    copy_count = 0
+    copy_seen = set()
+    prompt_seen = set()
+
     for index in range(1, 6):
         segment_id = "{:02d}".format(index)
         if cursor >= len(lines) or not re.fullmatch(
@@ -649,19 +705,56 @@ def _validate_result_text(result_text: str) -> None:
             raise DeliveryError("director_text_requires_segments_01_to_05")
         cursor += 1
 
+        expected_task = "生活动作：{}".format(NARRATIVE_TASKS[index - 1])
+        if cursor >= len(lines) or lines[cursor] != expected_task:
+            raise DeliveryError("invalid_narrative_task:{}".format(segment_id))
+        cursor += 1
+
         expected_mapping = "首尾帧：{:02d}.png → {:02d}.png".format(index, index + 1)
         if cursor >= len(lines) or lines[cursor] != expected_mapping:
             raise DeliveryError("invalid_frame_mapping:{}".format(segment_id))
         cursor += 1
 
-        if cursor >= len(lines) or not re.fullmatch(r"提示词[：:]\s*\S.*", lines[cursor]):
+        if cursor >= len(lines) or not re.fullmatch(r"视频提示词[：:]\s*\S.*", lines[cursor]):
             raise DeliveryError("segment_requires_one_prompt:{}".format(segment_id))
+        prompt_value = re.split(r"[：:]", lines[cursor], maxsplit=1)[1].strip()
+        normalized_prompt = re.sub(r"[\W_]+", "", prompt_value.casefold(), flags=re.UNICODE)
+        if (
+            len(normalized_prompt) < 35
+            or not all(pattern.search(prompt_value) for pattern in PROMPT_STRUCTURE_PATTERNS)
+            or BANNED_PROMPT_TERMS.search(prompt_value)
+        ):
+            raise DeliveryError("segment_prompt_is_not_actionable:{}".format(segment_id))
+        if normalized_prompt in prompt_seen:
+            raise DeliveryError("segment_prompt_is_duplicate:{}".format(segment_id))
+        prompt_seen.add(normalized_prompt)
         cursor += 1
-        if cursor < len(lines) and re.fullmatch(r"提示词[：:]\s*\S.*", lines[cursor]):
+        if cursor < len(lines) and re.fullmatch(r"视频提示词[：:]\s*\S.*", lines[cursor]):
             raise DeliveryError("segment_requires_one_prompt:{}".format(segment_id))
 
+        if cursor >= len(lines) or not re.fullmatch(r"字幕/旁白[：:]\s*\S.*", lines[cursor]):
+            raise DeliveryError("segment_requires_copy:{}".format(segment_id))
+        copy_value = re.split(r"[：:]", lines[cursor], maxsplit=1)[1].strip()
+        cursor += 1
+        no_copy = copy_value.casefold() in NO_COPY_VALUES
+        if not no_copy:
+            copy_count += 1
+            if segment_id not in COPY_ALLOWED_SEGMENTS:
+                raise DeliveryError("segment_copy_must_not_explain_process:{}".format(segment_id))
+            if len(copy_value) > 30:
+                raise DeliveryError("segment_copy_too_long:{}".format(segment_id))
+            if copy_value in BANNED_COPY_LINES:
+                raise DeliveryError("segment_copy_is_cliche:{}".format(segment_id))
+            if any(fragment in copy_value for fragment in BANNED_PROCESS_COPY_FRAGMENTS):
+                raise DeliveryError("segment_copy_must_not_explain_process:{}".format(segment_id))
+            normalized_copy = re.sub(r"[\W_]+", "", copy_value.casefold(), flags=re.UNICODE)
+            if normalized_copy in copy_seen:
+                raise DeliveryError("segment_copy_is_duplicate:{}".format(segment_id))
+            copy_seen.add(normalized_copy)
     if cursor != len(lines):
         raise DeliveryError("director_text_contains_extra_content")
+    if copy_count > 3:
+        raise DeliveryError("director_text_allows_zero_to_three_copy_lines")
 
 
 def _delivery_summary(delivery: Mapping[str, Any]) -> str:

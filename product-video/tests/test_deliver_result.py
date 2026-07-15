@@ -20,8 +20,8 @@ FAKE_PNG = (
     b"\x89PNG\r\n\x1a\n"
     + (13).to_bytes(4, "big")
     + b"IHDR"
-    + (1).to_bytes(4, "big")
-    + (1).to_bytes(4, "big")
+    + (720).to_bytes(4, "big")
+    + (1280).to_bytes(4, "big")
     + bytes((8, 6, 0, 0, 0))
 )
 
@@ -56,16 +56,39 @@ class DeliverResultTests(unittest.TestCase):
             image_paths.append(str(path))
         return image_paths
 
+    def video_prompt(self, label, index):
+        return (
+            "{}-{:02d}：在普通白天房间，同一成年人的双手沿玻璃边缘缓慢移动并保持与薄膜持续接触，"
+            "保留轻微摩擦和正常速度，末端自然减速。镜头保持锁定以看清接触，背景只保留稳定窗光，"
+            "动作精确落到尾帧的完成状态，商品图案、房间和主光不变。".format(label, index)
+        )
+
     def director_text(self, label="prompt", failure=None):
         blocks = []
+        tasks = ("日常触发", "准备", "关键操作", "可见验证", "回到生活")
+        copies = (
+            "{}-临街坐着会在意路过的人".format(label),
+            "无",
+            "无",
+            "{}-白天窗面先映出街景".format(label),
+            "无",
+        )
         for index in range(1, 6):
             blocks.append(
-                "{0:02d}｜镜头{0:02d}\n首尾帧：{0:02d}.png → {1:02d}.png\n"
-                "提示词：{2}-{0:02d}".format(index, index + 1, label)
+                "{0:02d}｜镜头{0:02d}\n生活动作：{3}\n首尾帧：{0:02d}.png → {1:02d}.png\n"
+                "视频提示词：{2}\n字幕/旁白：{4}".format(
+                    index, index + 1, self.video_prompt(label, index), tasks[index - 1], copies[index - 1]
+                )
             )
         header = "项目：测试商品\n规格：9:16｜5 段｜每段 4–6 秒"
         if failure:
             header += "\n生图：失败（{}）".format(failure)
+        header += (
+            "\n商品路线：window_film｜roll_to_sheet"
+            "\n日常场景：普通白天房间里，一名成年人给同一扇窗贴膜"
+            "\n完整闭环：玻璃待处理→清洁对齐→贴合刮平→检查边缘→继续桌边工作"
+            "\n传播重点：薄膜与玻璃贴合后的平整边缘"
+        )
         return header + "\n\n" + "\n\n".join(blocks)
 
     def fake_completed(self, returncode=0, stdout="{}", stderr=""):
@@ -458,6 +481,20 @@ class DeliverResultTests(unittest.TestCase):
             ):
                 deliver_result._parse_image_specs(["01={}".format(source)])
 
+    def test_wrong_aspect_or_tiny_png_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            source = Path(temporary) / "tiny-square.png"
+            source.write_bytes(
+                b"\x89PNG\r\n\x1a\n"
+                + (13).to_bytes(4, "big")
+                + b"IHDR"
+                + (1).to_bytes(4, "big")
+                + (1).to_bytes(4, "big")
+                + bytes((8, 6, 0, 0, 0))
+            )
+            with self.assertRaisesRegex(deliver_result.DeliveryError, "invalid_png_content:01"):
+                deliver_result._parse_image_specs(["01={}".format(source)])
+
     def test_zero_images_still_saves_and_sends_plain_text(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -528,17 +565,35 @@ class DeliverResultTests(unittest.TestCase):
         deliver_result._validate_result_text(valid)
         deliver_result._validate_result_text(self.director_text("chain", "工具不可用"))
 
+        vague_prompt = valid.replace(
+            self.video_prompt("chain", 1), "更高级、更自然、更有电影感"
+        )
+        with self.assertRaisesRegex(
+            deliver_result.DeliveryError, "segment_prompt_is_not_actionable:01"
+        ):
+            deliver_result._validate_result_text(vague_prompt)
+
+        fake_prompt = valid.replace(
+            "自然减速。镜头保持锁定", "自然减速，周围出现体积光和粒子。镜头保持锁定", 1
+        )
+        with self.assertRaisesRegex(
+            deliver_result.DeliveryError, "segment_prompt_is_not_actionable:01"
+        ):
+            deliver_result._validate_result_text(fake_prompt)
+
         wrong_mapping = valid.replace("首尾帧：03.png → 04.png", "首尾帧：03.png → 05.png")
         with self.assertRaisesRegex(deliver_result.DeliveryError, "invalid_frame_mapping:03"):
             deliver_result._validate_result_text(wrong_mapping)
 
+        prompt_02 = self.video_prompt("chain", 2)
         duplicate_prompt = valid.replace(
-            "提示词：chain-02", "提示词：chain-02\n提示词：duplicate"
+            "视频提示词：{}".format(prompt_02),
+            "视频提示词：{}\n视频提示词：duplicate".format(prompt_02),
         )
         with self.assertRaisesRegex(deliver_result.DeliveryError, "segment_requires_one_prompt:02"):
             deliver_result._validate_result_text(duplicate_prompt)
 
-        with_sixth_segment = valid + "\n\n06｜不允许\n提示词：extra"
+        with_sixth_segment = valid + "\n\n06｜不允许\n视频提示词：extra"
         with self.assertRaisesRegex(
             deliver_result.DeliveryError, "director_text_contains_extra_content"
         ):
@@ -549,9 +604,25 @@ class DeliverResultTests(unittest.TestCase):
             "规格：9:16｜5 段｜每段 4–6 秒\n商品真值摘要：不应出现在导演台",
         )
         with self.assertRaisesRegex(
-            deliver_result.DeliveryError, "director_text_requires_segments_01_to_05"
+            deliver_result.DeliveryError, "director_text_requires_route_line"
         ):
             deliver_result._validate_result_text(extra_analysis)
+
+        wrong_task = valid.replace("生活动作：关键操作", "生活动作：回到生活")
+        with self.assertRaisesRegex(deliver_result.DeliveryError, "invalid_narrative_task:03"):
+            deliver_result._validate_result_text(wrong_task)
+
+        cliche_copy = valid.replace("字幕/旁白：chain-白天窗面先映出街景", "字幕/旁白：重新定义品质")
+        with self.assertRaisesRegex(deliver_result.DeliveryError, "segment_copy_is_cliche:04"):
+            deliver_result._validate_result_text(cliche_copy)
+
+        process_copy = valid.replace("字幕/旁白：无", "字幕/旁白：贴平后，再沿边裁齐。", 1)
+        with self.assertRaisesRegex(
+            deliver_result.DeliveryError, "segment_copy_must_not_explain_process:02"
+        ):
+            deliver_result._validate_result_text(process_copy)
+
+        deliver_result._validate_result_text(valid)
 
     def test_user_failure_switches_to_ready_bot_from_current_item(self):
         with tempfile.TemporaryDirectory() as temporary:
